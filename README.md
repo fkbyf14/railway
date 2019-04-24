@@ -25,4 +25,5 @@ Item | Train number | A.departure | B.arrival
 ###### Usage example  
 `python3 railway.py --config /usr/local/etc/railway_config.conf --routes /usr/local/etc/routes.conf`
 
-*By default script takes conf files from current directory*
+*By default script takes conf files from current directory*  
+*Test version python3.7*  
