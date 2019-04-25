@@ -4,12 +4,13 @@ import logging
 import sys
 from collections import namedtuple
 
-DEFAULT_CONFIG_PATH = 'railway_config'
-DEFAULT_ROUTE_CONFIG_PATH = 'routes'
+DEFAULT_CONFIG_PATH = 'railway_config.conf'
+DEFAULT_ROUTE_CONFIG_PATH = 'routes.conf'
 
 Train = namedtuple('Train', ['train_number', 'route', 'velocity'])
 Section = namedtuple('Section', ['section_name', 'length', 'shedule'])
 SheduleItem = namedtuple('SheduleItem', ['departure', 'arrival', 'train'])
+Station = namedtuple('Station', ['name', 'capacity', 'filling_up', 'passing'])
 
 
 class TrainAccidentError(Exception):
@@ -34,6 +35,8 @@ class TrafficService:
     def __init__(self, railway_conf):
         self.railway_conf = railway_conf
         self.overall_timetable = dict()
+        self.stations = dict()
+        self.accidents = {}
 
     def route_validator(self, route):
         for station in range(len(route) - 1):
@@ -68,12 +71,27 @@ class TrafficService:
         shedule = self.overall_timetable.get(section_name).shedule
         last_shedule_item = shedule[-1]
         for i in range(0, len(shedule) - 1):
-            if not (shedule[i].departure > last_shedule_item.arrival or
-                    shedule[i].arrival < last_shedule_item.departure):
+            if not (shedule[i].departure >= last_shedule_item.arrival or
+                    shedule[i].arrival <= last_shedule_item.departure):
                 if shedule[i].train != last_shedule_item.train:
                     raise TrainAccidentError(r'On the "{0}" section is bad accident: '
                                              'intersection of {1} and {2}'.format(section_name, shedule[i],
                                                                                   last_shedule_item))
+
+    def analyze_station_passing(self, station_name, time, train_number):
+        if self.stations.get(station_name):
+            station = self.stations.get(station_name)
+            if not station.passing.get(time):
+                station.passing[time] = [train_number]
+            else:
+                station.passing.get(time).append(train_number)
+                if station.capacity < len(station.passing.get(time)):
+                    raise TrainAccidentError(r'On the "{0}" station is bad accident: '
+                                             'too many trains: {1}'.format(station, station.passing.get(time)))
+        else:
+            station = Station(station_name, self.railway_conf.get(station_name).get('capacity'),
+                              dict(time=train_number))
+            self.stations[station_name] = station
 
     def commit_route_into_timetable(self, train_number, route, speed):
         for section_number in range(len(route) - 1):
@@ -86,10 +104,13 @@ class TrafficService:
                 arrival = 0
             departure = arrival
             arrival = departure + distance / speed
+
             shedule_item = SheduleItem(departure, arrival, train_number)
 
             self.create_or_update_section_into_timetable(section_name, shedule_item, distance)
             self.analyze_section_shedule(section_name)
+            self.analyze_station_passing(left_bound, departure, train_number)
+            self.analyze_station_passing(right_bound, arrival, train_number)
 
 
 def main(railway_config, routes_path):
@@ -103,7 +124,10 @@ def main(railway_config, routes_path):
             try:
                 traffic_service.commit_route_into_timetable(train_number, route, speed)
             except TrainAccidentError as e:
+                if not traffic_service.accidents:
+                    logging.info("It is the first accident")
                 logging.error('Route № {0} has a problem: {1}'.format(train_number, e.message))
+                traffic_service.accidents.update({train_number: e.message})
 
 
 if __name__ == "__main__":
