@@ -5,17 +5,19 @@ Length of way is an integer. There is no circle motion, - there are single
 bidirectional tracks between stations. But train drivers are hooligans and  
 sometimes reverse motion could be given. Station and train are presented as  
 a point. Every station has a capacity - quantity of trains in that station
-in the moment.
+in the  
+moment.
 
 Name of station should consist of letters. Every section of railway has name  
 that consist of start name point and end name point, sorted in lexicographical  
 order. There is no waiting time for trains, so, for example station.arrival =  
 station.departure.
-Traffic Service has a railway configuration and makes the overall sections
-timetable and stations timing.  
+Traffic Service has a railway configuration and makes the  
+overall sections timetable and stations timing.  
 *This is not work timetable, but timetable for routes analysis*  
-Sections timetable consist of shedules for every section of railway.
 
+
+Sections timetable consist of shedules for every section of railway:  
 **Traffic shedule of way section AB (A-B)**  
 
 Item | Train number | A.departure | B.arrival
