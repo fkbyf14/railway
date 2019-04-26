@@ -87,7 +87,7 @@ class TrafficService:
                 try:
                     if station.capacity < len(station.passing.get(time)):
                         raise TrainAccidentError(r'On the "{0}" station is bad accident: '
-                                                 'too many trains in the moment {1}'.format(station, time))
+                                                 'too many trains in the moment {1}'.format(station_name, time))
                 except TypeError:
                     logging.error(r'Please enter the capacity for "{}" station'.format(station))
         else:
