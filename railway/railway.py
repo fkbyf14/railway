@@ -4,8 +4,8 @@ import logging
 import sys
 from collections import namedtuple
 
-DEFAULT_CONFIG_PATH = '/home/alifed/Coding/railway/railway/railway_config.conf'
-DEFAULT_ROUTE_CONFIG_PATH = '/home/alifed/Coding/railway/railway/routes.conf'
+DEFAULT_CONFIG_PATH = 'railway_config.conf'
+DEFAULT_ROUTE_CONFIG_PATH = 'routes.conf'
 
 Train = namedtuple('Train', ['train_number', 'route', 'speed'])
 Section = namedtuple('Section', ['section_name', 'length', 'shedule'])
