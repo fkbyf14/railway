@@ -87,16 +87,16 @@ class TrafficService:
         if self.stations_timing.get(station_name):
             station = self.stations_timing.get(station_name)
             if not station.passing.get(time):
-                station.passing[time] = {train_number}
-            else:
-                station.passing.get(time).add(train_number)
-                try:
-                    if station.capacity < len(station.passing.get(time)):
-                        raise TrainAccidentError(r'On the "{0}" station is bad accident: '
-                                                 'too many trains in the moment {1}'.format(station_name, time),
-                                                 time, station_name)
-                except TypeError:
-                    logging.error(r'Please enter the capacity for "{}" station'.format(station_name))
+                station.passing[time] = set()
+
+            station.passing.get(time).add(train_number)
+            try:
+                if station.capacity < len(station.passing.get(time)):
+                    raise TrainAccidentError(r'On the "{0}" station is bad accident: '
+                                             'too many trains in the moment {1}'.format(station_name, time),
+                                             time, station_name)
+            except TypeError:
+                logging.error(r'Please enter the capacity for "{}" station'.format(station_name))
         else:
             station = Station(station_name, self.railway_conf.get(station_name).get('capacity'), {time: {train_number}})
             self.stations_timing[station_name] = station
@@ -122,9 +122,8 @@ class TrafficService:
                 self.analyze_station_passing(right_bound, arrival, train.train_number)
             except TrainAccidentError as e:
                 if not self.accidents.get(e.time):
-                    self.accidents[e.time] = {e.label}
-                else:
-                    self.accidents[e.time].add(e.label)
+                    self.accidents[e.time] = set()
+                self.accidents[e.time].add(e.label)
                 logging.error('Route № {0} has a problem: {1}'.format(train.train_number, e.message))
 
 
