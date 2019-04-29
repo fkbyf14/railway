@@ -4,8 +4,8 @@ import logging
 import sys
 from collections import namedtuple
 
-DEFAULT_CONFIG_PATH = 'railway_config.conf'
-DEFAULT_ROUTE_CONFIG_PATH = 'routes.conf'
+DEFAULT_CONFIG_PATH = '/home/alifed/Coding/railway/railway/railway_config.conf'
+DEFAULT_ROUTE_CONFIG_PATH = '/home/alifed/Coding/railway/railway/routes.conf'
 
 Train = namedtuple('Train', ['train_number', 'route', 'speed'])
 Section = namedtuple('Section', ['section_name', 'length', 'shedule'])
@@ -41,6 +41,7 @@ class TrafficService:
         self.accidents = {}
 
     def route_validator(self, route):
+        """validation of route in accordance with railway config"""
         for station in range(len(route) - 1):
             try:
                 way = self.railway_conf.get(route[station]).get(route[station + 1])
@@ -55,6 +56,7 @@ class TrafficService:
 
     @staticmethod
     def get_section_name(left_bound, right_bound):
+        """compose name of parts in lexicographical order"""
         if left_bound < right_bound:
             section_name = '{0}{1}'.format(left_bound, right_bound)
         else:
@@ -133,9 +135,9 @@ def main(railway_config, routes_path):
         train = Train(train.get('train_number'), train.get('route'), train.get('speed'))
         if traffic_service.route_validator(train.route):
             traffic_service.commit_route_into_timetable(train)
-
-    first_accident = min(traffic_service.accidents.keys())
-    logging.info(f"The first accident: in {first_accident} problem with {traffic_service.accidents[first_accident]}")
+    if traffic_service.accidents:
+        first_accident = min(traffic_service.accidents.keys())
+        logging.info(f"The first accident: in {first_accident} problem with {traffic_service.accidents[first_accident]}")
     logging.debug("accidents:{}".format(traffic_service.accidents))
     logging.debug("stations_timing:{}".format(traffic_service.stations_timing))
     logging.debug("sections_timetable:{}".format(traffic_service.sections_timetable))
