@@ -70,17 +70,27 @@ class TrafficService:
             section = Section(section_name, distance, [shedule_item])
             self.sections_timetable[section_name] = section
 
+    @staticmethod
+    def intersection(shedule_item1, shedule_item2):
+        if shedule_item1.departure != shedule_item2.departure and shedule_item1.arrival != shedule_item2.arrival:
+            if shedule_item1.departure < shedule_item2.arrival and shedule_item1.arrival > shedule_item2.departure\
+                    and shedule_item1.train != shedule_item2.train:
+                return True
+
     def analyze_section_shedule(self, section_name):
         shedule = self.sections_timetable.get(section_name).shedule
         last_shedule_item = shedule[-1]
         for i in range(len(shedule) - 1):
-            if not (shedule[i].departure >= last_shedule_item.arrival or
-                    shedule[i].arrival <= last_shedule_item.departure) and shedule[i].train != last_shedule_item.train:
+            if self.intersection(shedule[i], last_shedule_item):
                 if shedule[i].left == last_shedule_item.left:
-                    time_of_accident = last_shedule_item.departure + self.sections_timetable.get(section_name).length\
-                                       / abs(shedule[i].train.speed - last_shedule_item.train.speed)
+                    time_of_accident = max(shedule[i].departure, last_shedule_item.departure) + \
+                                       (abs(shedule[i].departure - last_shedule_item.departure)
+                                        * min(shedule[i].train.speed, last_shedule_item.train.speed)) / \
+                                       abs(shedule[i].train.speed - last_shedule_item.train.speed)
+
                 else:
-                    time_of_accident = last_shedule_item.departure + self.sections_timetable.get(section_name).length\
+                    time_of_accident = max(shedule[i].departure, last_shedule_item.departure) + \
+                                       self.sections_timetable.get(section_name).length \
                                        / (shedule[i].train.speed + last_shedule_item.train.speed)
 
                 raise TrainAccidentError(r'On the "{0}" section is bad accident: '
@@ -122,15 +132,9 @@ class TrafficService:
             shedule_item = SheduleItem(departure, arrival, left_bound, right_bound, train)
 
             self.create_or_update_section_into_timetable(section_name, shedule_item, distance)
-            try:
-                self.analyze_station_passing(left_bound, departure, train.train_number)
-                self.analyze_section_shedule(section_name)
-                self.analyze_station_passing(right_bound, arrival, train.train_number)
-            except TrainAccidentError as e:
-                if not self.accidents.get(e.time):
-                    self.accidents[e.time] = list()
-                self.accidents[e.time].append(e.details)
-                logging.error('Route № {0} has a problem: {1}'.format(train.train_number, e.message))
+            self.analyze_station_passing(left_bound, departure, train.train_number)
+            self.analyze_section_shedule(section_name)
+            self.analyze_station_passing(right_bound, arrival, train.train_number)
 
 
 def main(railway_config, routes_path):
@@ -139,7 +143,14 @@ def main(railway_config, routes_path):
     for train in get_route(routes_path):
         train = Train(train.get('train_number'), train.get('route'), train.get('speed'))
         if traffic_service.route_validator(train.route):
-            traffic_service.commit_route_into_timetable(train)
+            try:
+                traffic_service.commit_route_into_timetable(train)
+            except TrainAccidentError as e:
+                if not traffic_service.accidents.get(e.time):
+                    traffic_service.accidents[e.time] = list()
+                traffic_service.accidents[e.time].append(e.details)
+                logging.error('Route № {0} has a problem: {1}'.format(train.train_number, e.message))
+
     if traffic_service.accidents:
         first_accident = min(traffic_service.accidents.keys())
         logging.info(
