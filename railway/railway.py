@@ -9,15 +9,15 @@ DEFAULT_ROUTE_CONFIG_PATH = 'routes.conf'
 
 Train = namedtuple('Train', ['train_number', 'route', 'speed'])
 Section = namedtuple('Section', ['section_name', 'length', 'shedule'])
-SheduleItem = namedtuple('SheduleItem', ['departure', 'arrival', 'train'])
+SheduleItem = namedtuple('SheduleItem', ['departure', 'arrival', 'left', 'right', 'train'])
 Station = namedtuple('Station', ['name', 'capacity', 'passing'])
 
 
 class TrainAccidentError(Exception):
-    def __init__(self, message, time, label):
+    def __init__(self, message, time, details):
         self.message = message
         self.time = time
-        self.label = label
+        self.details = details
 
 
 def load_railway_conf(conf_path):
@@ -73,15 +73,21 @@ class TrafficService:
     def analyze_section_shedule(self, section_name):
         shedule = self.sections_timetable.get(section_name).shedule
         last_shedule_item = shedule[-1]
-        for i in range(0, len(shedule) - 1):
+        for i in range(len(shedule) - 1):
             if not (shedule[i].departure >= last_shedule_item.arrival or
                     shedule[i].arrival <= last_shedule_item.departure) and shedule[i].train != last_shedule_item.train:
-                time_of_accident = self.sections_timetable.get(section_name).length / (shedule[i].train.speed
-                                                                                       + last_shedule_item.train.speed)
+                if shedule[i].left == last_shedule_item.left:
+                    time_of_accident = last_shedule_item.departure + self.sections_timetable.get(section_name).length\
+                                       / abs(shedule[i].train.speed - last_shedule_item.train.speed)
+                else:
+                    time_of_accident = last_shedule_item.departure + self.sections_timetable.get(section_name).length\
+                                       / (shedule[i].train.speed + last_shedule_item.train.speed)
+
                 raise TrainAccidentError(r'On the "{0}" section is bad accident: '
                                          'intersection of {1} and {2}'.format(section_name, shedule[i],
                                                                               last_shedule_item), time_of_accident,
-                                         f"{shedule[i].train.train_number} & {last_shedule_item.train.train_number}")
+                                         {section_name: {shedule[i].train.train_number,
+                                                         last_shedule_item.train.train_number}})
 
     def analyze_station_passing(self, station_name, time, train_number):
         if self.stations_timing.get(station_name):
@@ -93,8 +99,8 @@ class TrafficService:
             try:
                 if station.capacity < len(station.passing.get(time)):
                     raise TrainAccidentError(r'On the "{0}" station is bad accident: '
-                                             'too many trains in the moment {1}'.format(station_name, time),
-                                             time, station_name)
+                                             'too many trains at the moment {1}'.format(station_name, time),
+                                             time, {station_name: station.passing.get(time)})
             except TypeError:
                 logging.error(r'Please enter the capacity for "{}" station'.format(station_name))
         else:
@@ -113,7 +119,7 @@ class TrafficService:
             departure = arrival
             arrival = departure + distance / train.speed
 
-            shedule_item = SheduleItem(departure, arrival, train)
+            shedule_item = SheduleItem(departure, arrival, left_bound, right_bound, train)
 
             self.create_or_update_section_into_timetable(section_name, shedule_item, distance)
             try:
@@ -122,8 +128,8 @@ class TrafficService:
                 self.analyze_station_passing(right_bound, arrival, train.train_number)
             except TrainAccidentError as e:
                 if not self.accidents.get(e.time):
-                    self.accidents[e.time] = set()
-                self.accidents[e.time].add(e.label)
+                    self.accidents[e.time] = list()
+                self.accidents[e.time].append(e.details)
                 logging.error('Route № {0} has a problem: {1}'.format(train.train_number, e.message))
 
 
@@ -136,7 +142,8 @@ def main(railway_config, routes_path):
             traffic_service.commit_route_into_timetable(train)
     if traffic_service.accidents:
         first_accident = min(traffic_service.accidents.keys())
-        logging.info(f"The first accident: in {first_accident} problem with {traffic_service.accidents[first_accident]}")
+        logging.info(
+            f"The first accident: at {first_accident} problem with {traffic_service.accidents[first_accident]}")
     logging.debug("accidents:{}".format(traffic_service.accidents))
     logging.debug("stations_timing:{}".format(traffic_service.stations_timing))
     logging.debug("sections_timetable:{}".format(traffic_service.sections_timetable))
