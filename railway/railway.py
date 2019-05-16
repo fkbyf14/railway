@@ -77,16 +77,21 @@ class TrafficService:
                     and shedule_item1.train != shedule_item2.train:
                 return True
 
+    @staticmethod
+    def coincide(shedule_item1, shedule_item2):
+        if shedule_item1.departure == shedule_item2.departure and shedule_item1.arrival == shedule_item2.arrival:
+            return True
+
     def analyze_section_shedule(self, section_name):
         shedule = self.sections_timetable.get(section_name).shedule
         last_shedule_item = shedule[-1]
         for i in range(len(shedule) - 1):
             if self.intersection(shedule[i], last_shedule_item):
-                if shedule[i].left == last_shedule_item.left:
+                delta_speed = abs(shedule[i].train.speed - last_shedule_item.train.speed)
+                if shedule[i].left == last_shedule_item.left and delta_speed != 0:
                     time_of_accident = max(shedule[i].departure, last_shedule_item.departure) + \
                                        (abs(shedule[i].departure - last_shedule_item.departure)
-                                        * min(shedule[i].train.speed, last_shedule_item.train.speed)) / \
-                                       abs(shedule[i].train.speed - last_shedule_item.train.speed)
+                                        * min(shedule[i].train.speed, last_shedule_item.train.speed)) / delta_speed
 
                 else:
                     time_of_accident = max(shedule[i].departure, last_shedule_item.departure) + \
@@ -95,6 +100,13 @@ class TrafficService:
 
                 raise TrainAccidentError(r'On the "{0}" section is bad accident: '
                                          'intersection of {1} and {2}'.format(section_name, shedule[i],
+                                                                              last_shedule_item), time_of_accident,
+                                         {section_name: {shedule[i].train.train_number,
+                                                         last_shedule_item.train.train_number}})
+            if self.coincide(shedule[i], last_shedule_item):
+                time_of_accident = last_shedule_item.departure
+                raise TrainAccidentError(r'On the "{0}" section is bad accident: '
+                                         'coincide of {1} and {2}'.format(section_name, shedule[i],
                                                                               last_shedule_item), time_of_accident,
                                          {section_name: {shedule[i].train.train_number,
                                                          last_shedule_item.train.train_number}})
@@ -155,6 +167,9 @@ def main(railway_config, routes_path):
         first_accident = min(traffic_service.accidents.keys())
         logging.info(
             f"The first accident: at {first_accident} problem with {traffic_service.accidents[first_accident]}")
+    else:
+        logging.info("There are no accidents")
+
     logging.debug("accidents:{}".format(traffic_service.accidents))
     logging.debug("stations_timing:{}".format(traffic_service.stations_timing))
     logging.debug("sections_timetable:{}".format(traffic_service.sections_timetable))
